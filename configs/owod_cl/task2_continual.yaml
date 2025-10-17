@@ -1,0 +1,62 @@
+# Enhanced OWOD Task 2 Configuration
+# Continual learning on classes 21-40 with memory replay and distillation
+
+_BASE_: "task1_clip_lora.yaml"
+
+CONTINUAL_LEARNING:
+  ENABLED: True
+  STRATEGY: "replay"
+  NUM_TASKS: 4
+  CURRENT_TASK: 2
+  
+  REPLAY:
+    ENABLED: True
+    MEMORY_SIZE: 2000
+    SELECTION_STRATEGY: "herding"
+    BATCH_RATIO: 0.5  # 50% replay samples in each batch
+    UPDATE_STRATEGY: "reservoir"
+  
+  DISTILLATION:
+    ENABLED: True
+    TEMPERATURE: 2.0
+    ALPHA: 0.5  # Balance between distillation and task loss
+    TYPE: "logit"  # logit, feature, attention, all
+    FEATURE_LAYERS: ["layer3", "layer4"]
+  
+  EWC:
+    ENABLED: False
+    LAMBDA: 5000.0
+    MODE: "online"
+  
+  EXPANSION:
+    ENABLED: False
+
+OWOD:
+  ENABLED: True
+  TOTAL_CLASSES: 81
+  PREV_INTRODUCED_CLS: 20  # Classes from Task 1
+  CUR_INTRODUCED_CLS: 20   # New classes in Task 2
+  UNKNOWN_CLASS_INDEX: 80
+  
+  ENERGY:
+    COMPUTE_DIST: True
+    SAVE_PATH: "energy_dist_40.pkl"
+  
+  FEATURE_STORE:
+    SAVE_PATH: "feature_store_t2.pkl"
+
+DATASETS:
+  TRAIN: ("voc_2007_trainval_t2",)
+  TEST: ("voc_2007_test_all_t2",)  # Test on all seen classes
+
+SOLVER:
+  BASE_LR: 0.00005  # Lower LR for fine-tuning
+  MAX_ITER: 15000
+  STEPS: (10000, 13000)
+  WARMUP_ITERS: 500
+
+TEST:
+  EVAL_PERIOD: 1500
+  COMPUTE_FORGETTING: True  # Track forgetting of T1 classes
+
+OUTPUT_DIR: "./output/task2_continual"

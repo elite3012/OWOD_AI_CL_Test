@@ -1,0 +1,147 @@
+# Enhanced OWOD Task 1 Configuration
+# Initial training on first 20 classes with CLIP + LoRA
+
+_BASE_: "../base/base_rcnn_fpn.yaml"
+
+MODEL:
+  META_ARCHITECTURE: "GeneralizedRCNN"
+  BACKBONE:
+    NAME: "build_resnet_fpn_backbone"
+  
+FOUNDATION_MODEL:
+  ENABLED: True
+  TYPE: "clip"
+  CLIP:
+    MODEL_NAME: "ViT-B/16"
+    PRETRAINED: "openai"
+    FREEZE_VISION: True
+    FREEZE_TEXT: True
+    EMBED_DIM: 512
+
+PEFT:
+  ENABLED: True
+  METHOD: "lora"
+  LORA:
+    R: 8
+    ALPHA: 16
+    DROPOUT: 0.1
+    TARGET_MODULES: ["q_proj", "v_proj", "k_proj", "o_proj"]
+    BIAS: "none"
+    MERGE_WEIGHTS: False
+
+CONTINUAL_LEARNING:
+  ENABLED: False  # First task, no CL yet
+  NUM_TASKS: 4
+  CURRENT_TASK: 1
+  REPLAY:
+    ENABLED: True
+    MEMORY_SIZE: 2000
+    SELECTION_STRATEGY: "herding"
+    BATCH_RATIO: 0.3
+  DISTILLATION:
+    ENABLED: False  # No teacher model yet
+
+MULTIMODAL:
+  ENABLED: True
+  FUSION_TYPE: "cross_attention"
+  VISION_LANGUAGE:
+    ENABLED: True
+    TEXT_ENCODER: "clip"
+  TEXT_GUIDED:
+    ENABLED: True
+    USE_CLASS_PROMPTS: True
+    PROMPT_TEMPLATE: "a photo of a {}"
+
+OWOD:
+  ENABLED: True
+  TOTAL_CLASSES: 81
+  PREV_INTRODUCED_CLS: 0
+  CUR_INTRODUCED_CLS: 20
+  UNKNOWN_CLASS_INDEX: 80
+  
+  UNKNOWN_DETECTION:
+    ENABLED: True
+    METHOD: "energy"
+    THRESHOLD: 0.5
+    TEMPERATURE: 1.5
+  
+  ENERGY:
+    ENABLED: True
+    COMPUTE_DIST: True
+    SAVE_PATH: "energy_dist_20.pkl"
+    MARGIN: 10.0
+  
+  CLUSTERING:
+    ENABLED: True
+    START_ITER: 500
+    UPDATE_MU_ITER: 1000
+    MOMENTUM: 0.9
+    Z_DIMENSION: 64
+    MARGIN: 10.0
+    ITEMS_PER_CLASS: 10
+    LOSS_WEIGHT: 0.1
+  
+  FEATURE_STORE:
+    ENABLED: True
+    SAVE_PATH: "feature_store_t1.pkl"
+    UPDATE_INTERVAL: 100
+
+OPTIMIZATION:
+  MIXED_PRECISION:
+    ENABLED: True
+    DTYPE: "fp16"
+    LOSS_SCALE: "dynamic"
+  
+  GRADIENT_CHECKPOINTING:
+    ENABLED: False
+  
+  QUANTIZATION:
+    ENABLED: False
+  
+  PRUNING:
+    ENABLED: False
+
+DATASETS:
+  TRAIN: ("voc_2007_trainval_t1",)
+  TEST: ("voc_2007_test_t1",)
+
+INPUT:
+  MIN_SIZE_TRAIN: (480, 512, 544, 576, 608, 640, 672, 704, 736, 768, 800)
+  MIN_SIZE_TEST: 800
+  MAX_SIZE_TRAIN: 1333
+  MAX_SIZE_TEST: 1333
+
+SOLVER:
+  OPTIMIZER: "AdamW"
+  BASE_LR: 0.0001
+  WEIGHT_DECAY: 0.0001
+  IMS_PER_BATCH: 8
+  MAX_ITER: 20000
+  STEPS: (15000, 18000)
+  GAMMA: 0.1
+  WARMUP_ITERS: 1000
+  WARMUP_METHOD: "linear"
+  CHECKPOINT_PERIOD: 2000
+  
+  CLIP_GRADIENTS:
+    ENABLED: True
+    CLIP_TYPE: "norm"
+    CLIP_VALUE: 1.0
+    NORM_TYPE: 2.0
+  
+  LR_SCHEDULER: "WarmupMultiStepLR"
+
+TEST:
+  EVAL_PERIOD: 2000
+  UNKNOWN_EVAL: True
+  COMPUTE_FORGETTING: False  # No previous tasks yet
+
+OUTPUT_DIR: "./output/task1_clip_lora"
+
+LOGGING:
+  WANDB_ENABLED: False
+  WANDB_PROJECT: "enhanced-owod"
+  LOG_INTERVAL: 50
+  SAVE_VISUALIZATIONS: True
+
+SEED: 42
